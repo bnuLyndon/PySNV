@@ -270,24 +270,24 @@ if __name__ == '__main__':
 
     default_kmer_length=21
 
-    output_path='/home/liliandong/workspace/iSNV/release/temp/'
-    ref_file='/home/liliandong/workspace/iSNV/DB/GCF_009858895.2_ASM985889v3_genomic.fna'
+    output_path='output/'
+    ref_file='GCF_009858895.2_ASM985889v3_genomic.fna'
     with open(ref_file, 'r') as handle:
         for rec in SeqIO.parse(handle, 'fasta'):
             exp_seq=''.join(rec.seq)
 
-    ref_db_array=np.load('/home/liliandong/workspace/iSNV/ref_db_array.npy')
+    ref_db_array=np.load('ref_db_array.npy')
     exp_ref_kmer_dict = dict(ref_db_array)
 
-    ref_db_array=np.load('/home/liliandong/workspace/iSNV/ref_db_array_f.npy')
+    ref_db_array=np.load('ref_db_array_f.npy')
     exp_ref_kmer_f_dict = dict(ref_db_array)
 
-    exp_connection_dict=pickle.loads(open('/home/liliandong/workspace/iSNV/temp/connection_dict.pickle','rb').read())
+    exp_connection_dict=pickle.loads(open('connection_dict.pickle','rb').read())
     for key in list(exp_connection_dict.keys()):
         if exp_connection_dict[key] < 135:
             del exp_connection_dict[key]
 
-    high_frequency_kmer_array=np.load('/home/liliandong/workspace/iSNV/temp/high_frequency_kmer_array.npy')
+    high_frequency_kmer_array=np.load('high_frequency_kmer_array.npy')
     exp_high_frequency_kmer_dict=dict(high_frequency_kmer_array)
 
     T0=time.time()
