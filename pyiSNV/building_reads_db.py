@@ -443,10 +443,10 @@ if __name__ == '__main__':
     import os, psutil, time
 
     default_chunksize = 1000000
-    R1_sequence_file='/home/liliandong/workspace/iSNV/test/SampleP_150_R1.fa'
-    R2_sequence_file='/home/liliandong/workspace/iSNV/test/SampleP_150_R2.fa'
+    R1_sequence_file='test/SampleP_150_R1.fa'
+    R2_sequence_file='test/SampleP_150_R2.fa'
 
-    ref_db_array=np.load('/home/liliandong/workspace/iSNV/ref_db_array.npy')
+    ref_db_array=np.load('ref_db_array.npy')
     exp_ref_kmer_dict = dict(ref_db_array)
 
     default_kmer_length=21
