@@ -1207,13 +1207,13 @@ if __name__ == '__main__':
     default_kmer_length=21
     default_average_kmer_count=4350.3*0.818*5
 
-    high_frequency_kmer_array=np.load('/home/liliandong/workspace/iSNV/temp/high_frequency_kmer_array.npy')
+    high_frequency_kmer_array=np.load('high_frequency_kmer_array.npy')
     exp_high_frequency_kmer_dict=dict(high_frequency_kmer_array)
 
-    exp_iSNV_dir='/home/liliandong/workspace/iSNV/test/kmers/'
-    exp_qc_iSNV_dir='/home/liliandong/workspace/iSNV/test/qc/'
+    exp_iSNV_dir='temp/kmers/'
+    exp_qc_iSNV_dir='temp/qc/'
 
-    output_path='/home/liliandong/workspace/iSNV/release/output/test.txt'
+    output_path='output/test.txt'
 
     T0=time.time()
     recognise_isnv(exp_iSNV_dir, exp_qc_iSNV_dir, exp_high_frequency_kmer_dict, output_path, \
