@@ -10,7 +10,7 @@ import gzip
 import numpy as np
 import scipy.signal as signal
 
-from pyiSNV import fq2fa, build_ref_db, build_reads_db, build_connection_table, \
+from pyiSNV import build_ref_db, build_reads_db, build_connection_table, \
     output_iSNV_area, recognise_isnv
 
 def format_path(path):
