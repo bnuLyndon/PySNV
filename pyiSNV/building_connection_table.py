@@ -211,14 +211,14 @@ if __name__ == '__main__':
     default_kmer_length=21
     default_chunksize = 1000000
 
-    high_frequency_kmer_array=np.load('/home/liliandong/workspace/iSNV/temp/high_frequency_kmer_array.npy')
+    high_frequency_kmer_array=np.load('high_frequency_kmer_array.npy')
     exp_high_frequency_kmer_dict=dict(high_frequency_kmer_array)
 
-    ref_db_array=np.load('/home/liliandong/workspace/iSNV/ref_db_array_f.npy')
+    ref_db_array=np.load('ref_db_array_f.npy')
     exp_ref_kmer_dict_f = dict(ref_db_array)
 
-    R1_sequence_file='/home/liliandong/workspace/iSNV/test/SampleP_150_R1.fa'
-    R2_sequence_file='/home/liliandong/workspace/iSNV/test/SampleP_150_R2.fa'
+    R1_sequence_file='test/SampleP_150_R1.fa'
+    R2_sequence_file='test/SampleP_150_R2.fa'
 
     T0=time.time()
     connection_table = build_connection_table(exp_high_frequency_kmer_dict, exp_ref_kmer_dict_f, \
