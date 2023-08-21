@@ -136,7 +136,7 @@ def process_folder(data_dir, running_dir, temp_dir, output_dir):
             
     return True
 
-def multi_process_folder(data_dir,running_dir,temp_dir, output_dir, max_process, interval=5):
+def parallel_process_folder(data_dir,running_dir,temp_dir, output_dir, max_process=5, interval=5):
 
     pool = Pool(max_process)
         
@@ -165,9 +165,13 @@ default_kmer_count_threshold = -1
 #please change to running_dir
 running_dir = '.'
 
+nb_kernels=1
+
 data_dir = 'test'
 temp_dir = 'temp/'
 output_dir = 'output/'
-#process_folder(data_dir, running_dir, temp_dir, output_dir) #single kernel
-#multi_process_folder(data_dir, running_dir, temp_dir, output_dir) #multi kernel
+if nb_kernels=1:
+    process_folder(data_dir, running_dir, temp_dir, output_dir) #single kernel
+else:
+    parallel_process_folder(data_dir, running_dir, temp_dir, output_dir) #multi kernel
 
