@@ -72,7 +72,7 @@ if __name__ == '__main__':
     import os, psutil, time
 
     default_kmer_length=21
-    example_ref_file='/home/liliandong/workspace/iSNV/DB/GCF_009858895.2_ASM985889v3_genomic.fna'
+    example_ref_file='iSNV/GCF_009858895.2_ASM985889v3_genomic.fna'
 
     T0=time.time()
     ref_db_array_f, ref_db_array_r, seq = build_ref_db(example_ref_file, default_kmer_length)
