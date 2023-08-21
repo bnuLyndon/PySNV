@@ -10,6 +10,8 @@ import gzip
 import numpy as np
 import scipy.signal as signal
 
+from multiprocessing import Process, Pool
+
 from pyiSNV import build_ref_db, build_reads_db, build_connection_table, \
     output_iSNV_area, recognise_isnv
 
@@ -50,7 +52,7 @@ def process_file(R1_sequence_file,running_dir,temp_path, output_dir):
         os.removedirs(exp_qc_iSNV_dir)
     os.mkdir(exp_qc_iSNV_dir)
 
-    T0=time.time()
+    T0 = time.time()
 
 
     ref_db_array_f, ref_db_array_r, seq = build_ref_db(example_ref_file, default_kmer_length)
@@ -96,7 +98,7 @@ def process_file(R1_sequence_file,running_dir,temp_path, output_dir):
 
 
     print('3/5 connection table building complete')
-    T1=time.time()
+    T1 = time.time()
     print('time using: ', T1-T0)
     print('-------------------------------')
 
@@ -105,7 +107,7 @@ def process_file(R1_sequence_file,running_dir,temp_path, output_dir):
         exp_ref_kmer_f_dict, exp_connection_dict, long_kmer_set, temp_path, output_name, default_kmer_length)
     
     print('4/5 iSNV position calculated')
-    T1=time.time()
+    T1 = time.time()
     print('time using: ', T1-T0)
     print('-------------------------------')
     
@@ -122,30 +124,50 @@ def process_file(R1_sequence_file,running_dir,temp_path, output_dir):
     
     return True
 
-def process_folder(data_dir,running_dir,temp_dir, output_dir):
-    files=os.listdir(data_dir)
+def process_folder(data_dir, running_dir, temp_dir, output_dir):
+    files = os.listdir(data_dir)
     for file in files:
         filepath=data_dir+file
-        process_file(filepath,running_dir,temp_dir,output_dir)
+        process_file(filepath, running_dir, temp_dir, output_dir)
         #try:
-        #    process_file(filepath,running_dir,temp_dir)
+        #    process_file(filepath, running_dir, temp_dir)
         #except:
         #    pass
             
     return True
+
+def multi_process_folder(data_dir,running_dir,temp_dir, output_dir, max_process, interval=5):
+
+    pool = Pool(max_process)
+        
+    files=os.listdir(data_dir)
+    for file in files:
+        
+        filepath=data_dir+file
+        pool.apply_async(func=process_file,args=(filepath, running_dir, temp_dir, output_dir))
+        #time.sleep(interval)
+        #try:
+        #    process_file(filepath, running_dir, temp_dir)
+        #except:
+        #    pass
+            
+    pool.close()
+    pool.join()
+    return True
     
 
-default_kmer_length=21
+default_kmer_length = 21
 default_chunksize = 5000000
 
-default_snp_limit=0.02
-default_kmer_count_threshold=-1
+default_snp_limit = 0.02
+default_kmer_count_threshold = -1
 
 #please change to running_dir
-running_dir='.'
+running_dir = '.'
 
-data_dir='test'
-temp_dir='temp/'
-output_dir='output/'
-#process_folder(data_dir,running_dir,temp_dir, output_dir)
+data_dir = 'test'
+temp_dir = 'temp/'
+output_dir = 'output/'
+#process_folder(data_dir, running_dir, temp_dir, output_dir) #single kernel
+#multi_process_folder(data_dir, running_dir, temp_dir, output_dir) #multi kernel
 
