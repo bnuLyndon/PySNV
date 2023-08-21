@@ -1,0 +1,5 @@
+numpy
+pandas
+psutil
+Bio
+hirola
