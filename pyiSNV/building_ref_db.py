@@ -8,6 +8,15 @@ Created on Wed Apr 27 14:58:54 2022
 import numpy as np
 from Bio import SeqIO
 
+from pyiSNV.utils import tran_table
+
+class GenomeMapBuilder:
+    def __init__(self, kmer_length):
+        self.kmer_length = kmer_length
+        
+    def build_map(self, genome_file):
+        return build_ref_db(genome_file, self.kmer_length)
+
 def seq2kmer(seq, kernel, tran_table, k):
     """Converts a DNA sequence split into a list of k-mers.
     The sequences in one data set do not have to share the same length.
@@ -25,22 +34,9 @@ def seq2kmer(seq, kernel, tran_table, k):
     rev_convolved=np.convolve(rev_num_seq, kernel, mode='valid')
     return convolved, rev_convolved
 
-def build_tran_table():
-    tran_table={}
-    for i in range(65,91):
-        tran_table[chr(i)]='6'
-    #for i in range(97,123):
-    #    tran_table[chr(i)]='4'
-    tran_table['A']='0'
-    tran_table['C']='1'
-    tran_table['G']='2'
-    tran_table['T']='3'
-    return str.maketrans(tran_table)
-
 
 def build_ref_db(ref_file, kmer_length=21):
 
-    tran_table=build_tran_table()
     kernel=4**np.array(range(kmer_length),dtype=np.int64)
 
     
@@ -72,7 +68,7 @@ if __name__ == '__main__':
     import os, psutil, time
 
     default_kmer_length=21
-    example_ref_file='iSNV/GCF_009858895.2_ASM985889v3_genomic.fna'
+    example_ref_file='/home/liliandong/workspace/iSNV/DB/GCF_009858895.2_ASM985889v3_genomic.fna'
 
     T0=time.time()
     ref_db_array_f, ref_db_array_r, seq = build_ref_db(example_ref_file, default_kmer_length)

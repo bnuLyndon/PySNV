@@ -6,21 +6,25 @@ Created on Wed Apr 27 14:58:54 2022
 """
 
 import sys, os, time
-import gzip
 import numpy as np
-import scipy.signal as signal
 
-from multiprocessing import Process, Pool
+from multiprocessing import Pool
 
 from pyiSNV import build_ref_db, build_reads_db, build_connection_table, \
-    output_iSNV_area, recognise_isnv
+    output_iSNV_area, output_isnv
 
 def format_path(path):
     return path.replace('\r','/r').replace('\\','/')
 
+def get_file_extension(file_path):
+    _, file_extension = os.path.splitext(file_path)
+    return file_extension.lower()
+
 
 def process_file(R1_sequence_file,running_dir,temp_path, output_dir):
     R2_sequence_file=''
+    if 'R1' in R1_sequence_file:
+        R2_sequence_file=R1_sequence_file.replace('R1', 'R2')
 
     #default_average_kmer_count=4350.3*0.818*5
     #default_average_kmer_count=12716.26*0.818/2
@@ -34,23 +38,20 @@ def process_file(R1_sequence_file,running_dir,temp_path, output_dir):
     output_name=os.path.split(R1_sequence_file)[-1]
     output_name=output_name.split('.')[0]
     output_path=output_dir+output_name+'.txt'
+    
+    if os.path.isfile(output_path):
+        print(output_name, 'already exist')
+        return True
 
-    if R2_sequence_file:
+    if os.path.isfile(R2_sequence_file):
         print('pair-ended data: ', output_name)
     else:
         print('single-end data: ', output_name)
-
-    exp_iSNV_dir=temp_path+output_name+'_kmers/'
-    if os.path.isdir(exp_iSNV_dir):
-        return True
-        os.removedirs(exp_iSNV_dir)
-    os.mkdir(exp_iSNV_dir)
-
-    exp_qc_iSNV_dir=temp_path+output_name+'_qc/'
-    if os.path.isdir(exp_qc_iSNV_dir):
-        return True
-        os.removedirs(exp_qc_iSNV_dir)
-    os.mkdir(exp_qc_iSNV_dir)
+    
+    exp_qc_dir=temp_path+output_name+'_review/'
+    if not os.path.isdir(exp_qc_dir):
+        
+        os.mkdir(exp_qc_dir)
 
     T0 = time.time()
 
@@ -67,9 +68,10 @@ def process_file(R1_sequence_file,running_dir,temp_path, output_dir):
     exp_ref_kmer_f_dict = dict(ref_db_array_f)
     exp_ref_kmer_r_dict = dict(ref_db_array_r)
 
-    high_frequency_kmer_array, reads_ref_kmer_array, reads_kmers = build_reads_db(exp_ref_kmer_dict, \
-        R1_sequence_file, R2_sequence_file, default_chunksize, \
-        default_kmer_length, default_snp_limit, default_kmer_count_threshold)
+    exp_high_frequency_kmer_dict, reads_kmers, reads_abun, com_abun, snp_list, border_list = \
+        build_reads_db(R1_sequence_file, R2_sequence_file, seq, \
+        exp_ref_kmer_dict, exp_ref_kmer_f_dict, exp_ref_kmer_r_dict, \
+        default_kmer_length, default_snp_limit, default_downsample)
         
     print('2/5 reads db building complete')
     T1=time.time()
@@ -77,23 +79,9 @@ def process_file(R1_sequence_file,running_dir,temp_path, output_dir):
     print('-------------------------------')
 
         
-    reads_abun=np.zeros([30000,2])
-    
-    for i in range(len(reads_ref_kmer_array)):
-        idx=exp_ref_kmer_f_dict.get(reads_ref_kmer_array[i,0],-1)
-        if idx:
-            reads_abun[idx,0]=reads_ref_kmer_array[i,1]
-        idx=exp_ref_kmer_r_dict.get(reads_ref_kmer_array[i,0],-1)
-        if idx:
-            reads_abun[idx,1]=reads_ref_kmer_array[i,1]
-
-    average_kmer_count=np.median(reads_ref_kmer_array[:,1])
-    lower_bound_threshold=default_snp_limit*0.5*average_kmer_count
-    
-    exp_high_frequency_kmer_dict=dict(high_frequency_kmer_array)
-    
-    exp_connection_dict, long_kmer_set = build_connection_table(exp_high_frequency_kmer_dict, exp_ref_kmer_f_dict, \
-        reads_kmers, default_chunksize, default_kmer_length, lower_bound_threshold)
+    connection_mat, unique_long_kmers, long_kmer_counts \
+        = build_connection_table(exp_high_frequency_kmer_dict, exp_ref_kmer_f_dict, \
+            reads_kmers, default_kmer_length, default_snp_limit)
     #print(len(exp_connection_dict))
 
 
@@ -103,8 +91,9 @@ def process_file(R1_sequence_file,running_dir,temp_path, output_dir):
     print('-------------------------------')
 
     
-    output_iSNV_area(seq, exp_high_frequency_kmer_dict, exp_ref_kmer_dict, \
-        exp_ref_kmer_f_dict, exp_connection_dict, long_kmer_set, temp_path, output_name, default_kmer_length)
+    iSNV_area_list = output_iSNV_area(seq, exp_high_frequency_kmer_dict, exp_ref_kmer_dict, \
+        exp_ref_kmer_f_dict, connection_mat, unique_long_kmers, long_kmer_counts,\
+        reads_abun+com_abun, default_kmer_length, default_snp_limit)
     
     print('4/5 iSNV position calculated')
     T1 = time.time()
@@ -112,8 +101,10 @@ def process_file(R1_sequence_file,running_dir,temp_path, output_dir):
     print('-------------------------------')
     
     
-    nb_iSNV = recognise_isnv(exp_iSNV_dir, exp_qc_iSNV_dir, exp_high_frequency_kmer_dict, \
-        output_path, default_kmer_length, reads_abun)
+    nb_iSNV, index_dict, iSNV_dict = output_isnv(seq, iSNV_area_list, snp_list, border_list, exp_qc_dir, exp_high_frequency_kmer_dict, \
+        output_path, default_kmer_length, reads_abun,\
+        default_snp_limit, default_downsample, default_count_limit, \
+        default_average_reads_length, default_error_rate, default_vcf_threshold)
     
     print('5/5 iSNV table printed')
     print('-------------------------------')
@@ -127,8 +118,12 @@ def process_file(R1_sequence_file,running_dir,temp_path, output_dir):
 def process_folder(data_dir, running_dir, temp_dir, output_dir):
     files = os.listdir(data_dir)
     for file in files:
+        if '_R2' in file:
+            continue
         filepath=data_dir+file
-        process_file(filepath, running_dir, temp_dir, output_dir)
+        extension = get_file_extension(filepath)
+        if extension in file_formats:
+            process_file(filepath, running_dir, temp_dir, output_dir)
         #try:
         #    process_file(filepath, running_dir, temp_dir)
         #except:
@@ -142,9 +137,12 @@ def parallel_process_folder(data_dir,running_dir,temp_dir, output_dir, max_proce
         
     files=os.listdir(data_dir)
     for file in files:
-        
+        if '_R2' in file:
+            continue
         filepath=data_dir+file
-        pool.apply_async(func=process_file,args=(filepath, running_dir, temp_dir, output_dir))
+        extension = get_file_extension(filepath)
+        if extension in file_formats:
+            pool.apply_async(func=process_file,args=(filepath, running_dir, temp_dir, output_dir))
         #time.sleep(interval)
         #try:
         #    process_file(filepath, running_dir, temp_dir)
@@ -156,21 +154,28 @@ def parallel_process_folder(data_dir,running_dir,temp_dir, output_dir, max_proce
     return True
     
 
-default_kmer_length = 21
-default_chunksize = 5000000
+#parameters
+default_kmer_length=21
+default_downsample=1
+default_average_reads_length=150
 
-default_snp_limit = 0.02
-default_kmer_count_threshold = -1
+#usually no need to change
+default_snp_limit=0.02
+default_count_limit=10
+default_error_rate=0.01
+default_vcf_threshold=0.9999
+
+file_formats = set(['.fa', '.fq'])
 
 #please change to running_dir
 running_dir = '.'
 
 nb_kernels=1
 
-data_dir = 'test'
+data_dir = 'tests/'
 temp_dir = 'temp/'
 output_dir = 'output/'
-if nb_kernels=1:
+if nb_kernels==1:
     process_folder(data_dir, running_dir, temp_dir, output_dir) #single kernel
 else:
     parallel_process_folder(data_dir, running_dir, temp_dir, output_dir) #multi kernel
