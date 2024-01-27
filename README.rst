@@ -55,11 +55,11 @@ Additional Parameters
     ``--threshold``: Detection Threshold (Default: 0.02)
         The recommended detection threshold should be lager than sequencing error rate.\
     ``--kmer_length``: Kmer Length (Default: 21)
-        Currently capped at 30 (must be an odd number), the kmer length is automatically assessed by PySNV to ensure the absence of duplicate kmers in the genome. A slightly larger kmer length than the threshold, where duplicate kmers are absent, is recommended for optimal performance.\
+        This parameter specifies the length of k-mers to be considered during the analysis and must be an odd number smaller than 31. Kmer length should be set that no duplicate kmer exist on the genome.\
     ``--downsample``: Downsample Factor (Default: 1)
-        To enhance speed and reduce RAM usage, especially in high-depth sequencing scenarios, set the downsample factor (default: 1) to a value greater than or equal to 2. It is suggested to maintain a post-downsampling depth greater than 300X to preserve detection accuracy.\
+        Set the downsample factor to a value greater than or equal to 2 could enhance detection speed and reduce RAM usage, which could be used for high-depth sequencing samples. \
     ``--error_rate``: Sequencing Error Rate (Default: 0.01)
-        Used to filter out possible false positive detection..\
+        Used to filter out possible false positive detection.\
     -``-indel_limit``: Maximum Indel Length (Default: 300)
         To mitigate false positive indels, especially in the case of challenging long insertions and potential impacts on estimated sequencing depths due to long deletions, a default maximum indel length of 300 is set. The recommended length threshold is 2*average_read_depth.\
 
