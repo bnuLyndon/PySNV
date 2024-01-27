@@ -20,9 +20,7 @@ Python Usage
 
 2. Set the sample file(s) and genome file in `example.py`.
 
-3. Adjust the number of kernels in `example.py`.
-
-4. Run `example.py`.
+3. Run `example.py`.
 
 Example Files
 
@@ -30,7 +28,7 @@ Example Files
 
     detect_sample.py: Main function of processing for a single sample.
 
-    example_multi_files.py: Illustrates how to process multiple input files simultaneously. Paired samples hould include '_R1' and '_R2' in the file names.
+    example_multi_files.py: Illustrates how to process multiple input files simultaneously. Paired samples hould include '_R1' and '_R2' in the file names. Adjust the number of kernels to use parallel processing.
 
     detect_sample.py: Main function of processing for a sample folder.
 
