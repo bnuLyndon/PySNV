@@ -32,7 +32,7 @@ Example Files
 
     detect_sample.py: Main function of processing for a sample folder.
 
-Note: Before running the examples, make sure to set the necessary parameters in the main.py file.
+Note: Before running the examples, make sure to set the necessary parameters in the file.
 
 Bash Usage
 ------------------
@@ -42,7 +42,7 @@ Command
 
 Parameters
 
-``--sample1``: Path to single-end sample or first paired-end sample. Fasta, fastq or gz files are supported.
+``--sample1``: Path to single-end sample or first paired-end sample. Fasta, fastq and gz files are supported.
 
 ``--sample2`` (optional): Path to the second paired-end sample.
 
