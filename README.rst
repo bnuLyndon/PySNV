@@ -48,7 +48,7 @@ Command
 
 --reference (required): Path to the reference genome.
 
---output: Output file name (default is current working directory).
+--output: Output file path and name (default is current working directory, using sample name as output filename).
 
 Additional Parameters
 ------------------
