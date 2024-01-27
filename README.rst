@@ -60,6 +60,6 @@ Additional Parameters
         Set the downsample factor to a value greater than or equal to 2 could enhance detection speed and reduce RAM usage, which could be used for high-depth sequencing samples. \
     ``--error_rate``: Sequencing Error Rate (Default: 0.01)
         Used to filter out possible false positive detection.\
-    -``-indel_limit``: Maximum Indel Length (Default: 300)
+    ``--indel_limit``: Maximum Indel Length (Default: 300)
         To mitigate false positive indels, especially in the case of challenging long insertions and potential impacts on estimated sequencing depths due to long deletions, a default maximum indel length of 300 is set. The recommended length threshold is 2*average_read_depth.\
 
