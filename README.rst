@@ -42,7 +42,7 @@ Command
 
 Parameters
 
-``--sample1``: Path to single-end sample or first paired-end sample.
+``--sample1``: Path to single-end sample or first paired-end sample. Fasta, fastq or gz files are supported.
 
 ``--sample2`` (optional): Path to the second paired-end sample.
 
