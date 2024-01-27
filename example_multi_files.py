@@ -19,14 +19,12 @@ snv_limit = 0.02
 nb_kernel = 1
 
 #please change to running_dir
-running_dir='/home/lee/workspace/iSNV/release'
+running_dir='PySNV/'
 
 ref_file=running_dir+'/pyiSNV/GCF_009858895.2_ASM985889v3_genomic.fna'
 
-data_dir='/media/data/ll/iSNV_test/real/1st/'
-output_dir='/home/lee/workspace/iSNV/release/output/real1_3rd/'
-#data_dir = '/media/data/ll/iSNV_test/ten_samples/Samples/'
-#output_dir='/home/lee/workspace/iSNV/release/output/test/'
+data_dir='/media/data/iSNV_test/'
+output_dir='output/'
 
 if not os.path.isdir(output_dir):
     os.mkdir(output_dir)
