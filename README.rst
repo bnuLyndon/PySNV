@@ -14,48 +14,53 @@ Ensure you have the following Python libraries installed:
 4. `Bio`
 5. `hirola`
 
-Usage
+Python Usage
 -----
+1. Modify the `running_dir` variable in `example.py` to set the running directory.
 
-1. Modify the `running_dir` variable in `main.py` to set the running directory.
-2. Set the sample file(s) and genome file in `main.py`.
-3. Adjust the number of kernels in `main.py`.
-4. Run `main.py`.
+2. Set the sample file(s) and genome file in `example.py`.
 
-Main.py Parameters
-------------------
+3. Adjust the number of kernels in `example.py`.
 
-```bash
-python main.py --sample1 path/to/sample1.fastq --sample2 path/to/sample2.fastq --reference path/to/reference_genome.fa --output output_filename
-
-    --sample1: Path to single-end sample or first paired-end sample.
-    --sample2 (optional): Path to the second paired-end sample.
-    --reference (required): Path to the reference genome.
-    --output: Output file name (default is current working directory).
-
-Additional Parameters
-
-    --threshold: Detection threshold (default: 0.02).
-    --kmer_length: Kmer length (default: 21).
-    --downsample: Downsample factor (default: 1).
-    --error_rate: Sequencing error rate (default: 0.01).
-    --indel_limit: Maximum indel length (default: 300).
+4. Run `example.py`.
 
 Example Files
 
     example.py: Demonstrates basic usage of the PySNV tool.
-    detect_sample.py: Example script showcasing the detection process for a single sample.
-    example_multi_files.py: Illustrates how to process multiple input files simultaneously.
+
+    detect_sample.py: Main function of processing for a single sample.
+
+    example_multi_files.py: Illustrates how to process multiple input files simultaneously. Paired samples hould include '_R1' and '_R2' in the file names.
+
+    detect_sample.py: Main function of processing for a sample folder.
 
 Note: Before running the examples, make sure to set the necessary parameters in the main.py file.
 
-python
+Bash Usage
+------------------
+Command
 
-# example.py
-# ... (example script content)
+    python detect_sample.py --sample1 path/to/sample1.fastq --sample2 path/to/sample2.fastq --reference path/to/reference_genome.fa --output output_filename
 
-# detect_sample.py
-# ... (example script content)
+--sample1: Path to single-end sample or first paired-end sample.
 
-# example_multi_files.py
-# ... (example script content)
+--sample2 (optional): Path to the second paired-end sample.
+
+--reference (required): Path to the reference genome.
+
+--output: Output file name (default is current working directory).
+
+Additional Parameters
+------------------
+
+    --threshold: Detection Threshold (Default: 0.02)
+        The recommended detection threshold should be lager than sequencing error rate.\
+    --kmer_length: Kmer Length (Default: 21)
+        Currently capped at 30 (must be an odd number), the kmer length is automatically assessed by PySNV to ensure the absence of duplicate kmers in the genome. A slightly larger kmer length than the threshold, where duplicate kmers are absent, is recommended for optimal performance.\
+    --downsample: Downsample Factor (Default: 1)
+        To enhance speed and reduce RAM usage, especially in high-depth sequencing scenarios, set the downsample factor (default: 1) to a value greater than or equal to 2. It is suggested to maintain a post-downsampling depth greater than 300X to preserve detection accuracy.\
+    --error_rate: Sequencing Error Rate (Default: 0.01)
+        Used to filter out possible false positive detection..\
+    --indel_limit: Maximum Indel Length (Default: 300)
+        To mitigate false positive indels, especially in the case of challenging long insertions and potential impacts on estimated sequencing depths due to long deletions, a default maximum indel length of 300 is set. The recommended length threshold is 2*average_read_depth.\
+
