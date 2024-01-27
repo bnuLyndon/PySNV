@@ -18,11 +18,11 @@ downsample = 2
 snv_limit = 0.02
 
 #please change to running_dir
-running_dir='/home/lee/workspace/iSNV/release'
+running_dir='PySNV'
 
 ref_file=running_dir+'/pyiSNV/GCF_009858895.2_ASM985889v3_genomic.fna'
 
-R1_sequence_file='/home/lee/workspace/iSNV/data/SampleP150_R1.fq.gz'
+R1_sequence_file='data/SampleP150_R1.fq.gz'
 #R2_sequence_file=''
 if 'R1' in R1_sequence_file:
     R2_sequence_file=R1_sequence_file.replace('R1', 'R2')
