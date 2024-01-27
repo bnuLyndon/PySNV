@@ -17,36 +17,93 @@ from hirola import HashTable
 from pyiSNV.utils import decode, tran_table, dict2table
 
 class SampleMapBuilder:
-    def __init__(self, ref_kmer_dict, ref_kmer_f_dict, ref_kmer_r_dict, \
-                       kmer_length = 21, snv_limit = 0.04, downsample = 2):        
-        self.ref_kmer_dict = ref_kmer_dict
-        self.ref_kmer_f_dict = ref_kmer_f_dict
-        self.ref_kmer_r_dict = ref_kmer_r_dict
+    def __init__(self, config):
         
-        self.kmer_length = kmer_length
-        self.snv_limit = snv_limit
-        self.downsample = downsample
+        self.kmer_length = config.kmer_length
+        self.snv_limit = config.snv_limit
+        self.downsample = config.downsample
+            
+    def build_reads_db(self, R1_file, R2_file, ref_kmer_builder):
         
-    def build_map(self, R1_file, R2_file = ''):
-        return build_reads_db(R1_file, R2_file, self.seq, self.ref_kmer_dict,  
-                              self.ref_kmer_f_dict, self.ref_kmer_r_dict, \
-                           self.kmer_length, self.snv_limit, self.downsample)
+        ref_kmer_dict = ref_kmer_builder.get_ref_kmer('all')
+        ref_kmer_f_dict = ref_kmer_builder.get_ref_kmer('forward')
+        ref_kmer_r_dict = ref_kmer_builder.get_ref_kmer('reverse')
+        seq = ref_kmer_builder.get_genome_seq()
+        
+        kmer_length = self.kmer_length
+        snv_limit = self.snv_limit
+        downsample = self.downsample
+
+        t0 = time.time()
+        
+        convolved, reads_kmer_mask, reads_abun, reads_string = reads2kmer(ref_kmer_dict,   
+                           ref_kmer_f_dict, ref_kmer_r_dict, R1_file, kmer_length, downsample)
+          
+        #reads_ref_kmer_dict = dict(reads_ref_kmer_array)
+        reads_string_2 = ''
+        #self.reads_kmer_mask1 = reads_kmer_mask
+        genome_kmer_count = np.sum(reads_kmer_mask)
+
+        if os.path.isfile(R2_file):
+            
+            convolved2, reads_kmer_mask2, reads_abun_2, reads_string_2 = reads2kmer(ref_kmer_dict, 
+                               ref_kmer_f_dict, ref_kmer_r_dict, R2_file, kmer_length, downsample)
+            
+            reads_abun = reads_abun_2+reads_abun
+            convolved = np.hstack([convolved, convolved2])
+            reads_kmer_mask = np.hstack([reads_kmer_mask, reads_kmer_mask2])
+            
+            #self.reads_kmer_mask2 = reads_kmer_mask
+            genome_kmer_count += np.sum(reads_kmer_mask2)
+            
+            del convolved2, reads_kmer_mask2, reads_abun_2
+            
+        unique_kmers, counts = batch_unique(convolved[~reads_kmer_mask], 10)
+        #unique_kmers, counts = np.unique(convolved[~reads_kmer_mask], return_counts = True)
+        mask = (counts>2) & (unique_kmers>2**(kmer_length//2))
+        unique_kmers = unique_kmers[mask]
+        counts = counts[mask]
+        
+        high_frequency_kmer_dict = dict(zip(unique_kmers, counts))
+        
+        print('kmer count calculated, using', time.time()-t0)
+        
+        kmer_count_threshold = np.median(reads_abun)
+        
+        mask = counts >= kmer_count_threshold  
+        
+        lf_kmer = unique_kmers[~mask]
+        lf_counts = counts[~mask]
+
+        
+        unique_kmers = unique_kmers[mask]
+        counts = counts[mask]
+        hf_snp_list, hf_abun = get_snp_kmer(unique_kmers, counts, ref_kmer_f_dict, \
+                                        reads_abun, kmer_length//2+1, kmer_length, snv_limit)
+
+        lf_snp_list, lf_abun = get_snp_kmer(lf_kmer, lf_counts, ref_kmer_f_dict, \
+                                     reads_abun+hf_abun, kmer_length//2+1, kmer_length, snv_limit)
+        
+        print('simple snp found, using', time.time()-t0)
+        
+        self.border_snv_list = border_process(ref_kmer_f_dict, seq, convolved, reads_abun, kmer_length)
+        self.sample_kmer_depth = hf_abun+lf_abun
+        self.estimated_read_depth = reads_abun
+        self.snp_list = hf_snp_list+lf_snp_list
+        self.nb_genome_kmer = genome_kmer_count
+        #self.nb_hf_kmer = sum(list(high_frequency_kmer_dict.values()))
+        
+        #utilization_rate = (self.nb_hf_kmer + self.nb_genome_kmer) / len(convolved)
+        
+        #print('total kmer:', len(convolved), 'genome kmer:', self.nb_genome_kmer, \
+        #      'high freq kmer:', self.nb_hf_kmer, 'utlization rate:', f"{utilization_rate * 100:.2f}%")
+        
+        return high_frequency_kmer_dict, convolved, hf_abun+lf_abun+reads_abun
 
 def reads2kmer(ref_kmer_dict, ref_kmer_f_dict, ref_kmer_r_dict, R1_file, \
                kmer_length, downsample):
     t0 = time.time()
     kernel = 4**np.array(range(kmer_length),dtype = np.int64)
-
-    '''
-    ref_file = '/home/liliandong/workspace/iSNV/DB/GCF_009858895.2_ASM985889v3_genomic.fna'
-    with open(ref_file, 'r') as handle:
-        for rec in SeqIO.parse(handle, 'fasta'):
-            seq = ''.join(rec.seq)
-            kmers = seq2kmer(seq[:-33], kernel, tran_table, kmer_length)
-
-    print(len(kmers),len(np.unique(kmers)))
-    unique_kmers, index, counts = np.unique(kmers,return_index = True,return_counts = True)
-    '''
 
     shift_size = kmer_length//2
     
@@ -193,7 +250,7 @@ def get_snp_kmer(hf_kmers, hf_kmers_counts, ref_kmer_f_dict, reads_abun, window_
             #hf_abun[loc-shift_size:loc+shift_size+1]+ = hf_kmers_counts[i]
             hf_abun[loc] += hf_kmers_counts[i]
             if hf_kmers_counts[i]>snv_limit*(reads_abun[loc]+hf_kmers_counts[i]):
-                snp_list.append([loc, decode(loc2kmer_dict[loc]), decode(hf_kmers[i]), \
+                snp_list.append([loc, decode(loc2kmer_dict[loc],kmer_length), decode(hf_kmers[i],kmer_length), \
                                  hf_kmers[i], hf_kmers_counts[i]])
             else:
                 hf_kmers[i] = -1
@@ -236,9 +293,12 @@ def batch_unique(kmers, nb_batch):
 
 def border_process(ref_kmer_f_dict, seq, convolved, reads_abun, kmer_length):
 
+    right_length = kmer_length//2
+    left_length = kmer_length - right_length
+
     short_dict = dict()
     for key in ref_kmer_f_dict.keys():
-        kmer = key>>2*10
+        kmer = key>>2*right_length
         if not short_dict.get(kmer):
             short_dict[kmer] = []
         short_dict[kmer].append(ref_kmer_f_dict[key])
@@ -290,17 +350,17 @@ def border_process(ref_kmer_f_dict, seq, convolved, reads_abun, kmer_length):
                 kmer = temp_array[j]
                 if kmer == -1:
                     break
-                short_kmer = kmer-((kmer>>2*10)<<2*10)
+                short_kmer = kmer-((kmer>>2*right_length)<<2*right_length)
                 if not short_dict.get(short_kmer):
                     continue
                 for item in short_dict.get(short_kmer):
-                    if 10 <= item-loc < 2*kmer_length:
-                        ref_seq = seq[loc: item+10+1]
-                        var_seq = '{}{}'.format(decode(key), decode(kmer)[kmer_length-j:])
-                        if var_seq[:kmer_length+10+1] not in ending_seq_set:                 
+                    if right_length <= item-loc < 2*kmer_length:
+                        ref_seq = seq[loc: item+right_length+1]
+                        var_seq = '{}{}'.format(decode(key, kmer_length), decode(kmer, kmer_length)[kmer_length-j:])
+                        if var_seq[:kmer_length+right_length+1] not in ending_seq_set:                 
                             #temp_seq = [decode(elem) for elem in temp_array[:j+1]]
                             temp_count = [ending_kmer_dict.get(elem) for elem in temp_array[:j+1]]
-                            ending_seq_set.add(var_seq[:kmer_length+10+1])
+                            ending_seq_set.add(var_seq[:kmer_length+right_length+1])
                             ending_snv_list.append([loc, ref_seq, var_seq, temp_array[:j+1], np.median(temp_count)])
                 
                 
@@ -332,24 +392,24 @@ def border_process(ref_kmer_f_dict, seq, convolved, reads_abun, kmer_length):
                 kmer = temp_array[kmer_length-2-j]
                 if kmer == -1:
                     break
-                short_kmer = kmer>>2*11
+                short_kmer = kmer>>2*left_length
                 if not short_dict.get(short_kmer):
                     continue
                 for item in short_dict.get(short_kmer):
                     #print(loc,item,short_kmer)
-                    if 10 <= loc-item < 2*kmer_length:
+                    if right_length <= loc-item < 2*kmer_length:
                         ref_seq = seq[item+1: loc+kmer_length]
-                        var_seq = '{}{}'.format(decode(kmer)[:j+1], decode(key))
-                        if var_seq[-10-kmer_length:] not in starting_seq_set:
+                        var_seq = '{}{}'.format(decode(kmer, kmer_length)[:j+1], decode(key, kmer_length))
+                        if var_seq[-right_length-kmer_length:] not in starting_seq_set:
                             temp_count = [starting_kmer_dict.get(elem) for elem in temp_array[kmer_length-2-j:]]
                             #temp_seq = [decode(elem) for elem in temp_array[kmer_length-2-j:]]
-                            starting_seq_set.add(var_seq[-10-kmer_length:])
+                            starting_seq_set.add(var_seq[-right_length-kmer_length:])
                             starting_snv_list.append([item+1, ref_seq, var_seq, \
                                                       temp_array[kmer_length-2-j:], np.median(temp_count)])
 
     return starting_snv_list+ending_snv_list
 
-def build_reads_db(R1_file, R2_file, seq, ref_kmer_dict, ref_kmer_f_dict, ref_kmer_r_dict, \
+def build_reads_db_bk(R1_file, R2_file, seq, ref_kmer_dict, ref_kmer_f_dict, ref_kmer_r_dict, \
                    kmer_length = 21, snv_limit = 0.04, downsample = 2):
 
     t0 = time.time()
@@ -359,6 +419,7 @@ def build_reads_db(R1_file, R2_file, seq, ref_kmer_dict, ref_kmer_f_dict, ref_km
       
     #reads_ref_kmer_dict = dict(reads_ref_kmer_array)
     reads_string_2 = ''
+    genome_kmer_count = np.sum(reads_kmer_mask)
 
     if os.path.isfile(R2_file):
         
@@ -368,6 +429,8 @@ def build_reads_db(R1_file, R2_file, seq, ref_kmer_dict, ref_kmer_f_dict, ref_km
         reads_abun = reads_abun_2+reads_abun
         convolved = np.hstack([convolved, convolved2])
         reads_kmer_mask = np.hstack([reads_kmer_mask, reads_kmer_mask2])
+        
+        genome_kmer_count += np.sum(reads_kmer_mask)
         
         del convolved2, reads_kmer_mask2, reads_abun_2
         
@@ -404,26 +467,3 @@ def build_reads_db(R1_file, R2_file, seq, ref_kmer_dict, ref_kmer_f_dict, ref_km
     
     return high_frequency_kmer_dict, convolved, reads_abun, hf_abun+lf_abun, \
         hf_snp_list+lf_snp_list, border_snv_list
-
-if __name__ == '__main__':
-    import os, psutil, time
-
-    default_chunksize = 1000000
-    R1_sequence_file = '/home/liliandong/workspace/iSNV/test/SampleP_150_R1.fa'
-    R2_sequence_file = '/home/liliandong/workspace/iSNV/test/SampleP_150_R2.fa'
-
-    ref_db_array = np.load('/home/liliandong/workspace/iSNV/ref_db_array.npy')
-    exp_ref_kmer_dict = dict(ref_db_array)
-
-    default_kmer_length = 21
-    default_threshold = 135*5
-
-    T0 = time.time()
-    high_frequency_kmer_array, _ = build_reads_db(exp_ref_kmer_dict, R1_sequence_file, R2_sequence_file, \
-        default_chunksize, default_kmer_length, default_threshold)
-    T1 = time.time()
-
-    #np.save('temp/high_frequency_kmer_array.npy', high_frequency_kmer_array)
-    
-    print('time using: ', T1-T0)
-    print(u'RAM using %.4f GB' % (psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024 / 1024) )

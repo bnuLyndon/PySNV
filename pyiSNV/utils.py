@@ -6,8 +6,38 @@ Created on Fri Nov 10 22:03:37 2023
 @author: lee
 """
 
+import os
 import numpy as np
 from hirola import HashTable
+
+class Configuration:
+    def __init__(self, kmer_length, downsample=1, snv_limit=0.02,
+                 error_rate=0.01, indel_limit=300, verbose=False, p_threshold=0.9999, 
+                 average_reads_length=150, count_limit=10, correct_factor=0.8):
+        self.kmer_length = kmer_length
+        self.downsample = downsample
+        
+        self.snv_limit = snv_limit
+        self.error_rate = error_rate
+        self.indel_limit = indel_limit
+        self.verbose = verbose
+
+        self.p_threshold = p_threshold
+        self.average_reads_length = average_reads_length
+        self.count_limit = count_limit
+        self.correct_factor = correct_factor
+        
+def format_path(path):
+    return path.replace('\r','/r').replace('\\','/')
+
+def get_file_name(filepath):
+    file_name=os.path.split(filepath)[-1]
+    file_name=file_name.split('.')[0]
+    return file_name
+
+def get_file_type(file_name):
+    _, file_extension = os.path.splitext(file_name)
+    return file_extension
 
 def encode(seq, kernel, tran_table):
     num_seq=seq.translate(tran_table)
@@ -19,7 +49,7 @@ def encode(seq, kernel, tran_table):
     assert len(convolved)==1
     return convolved[0]
 
-def decode(kmer, kmer_length=21, return_base=True):
+def decode(kmer, kmer_length, return_base=True):
     if kmer==' ':
         return -1
     kmer=int(kmer)
@@ -103,3 +133,4 @@ def dict2table(the_dict, key_dtype=np.int64, value_dtype=np.int64, length=0, thr
 
 
 tran_table=build_tran_table()
+accept_type_list = ['.fasta', '.fastq', '.fq', '.fq', '.gz']

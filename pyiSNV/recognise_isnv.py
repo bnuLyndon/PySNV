@@ -13,6 +13,338 @@ from scipy.stats import binom
 
 from pyiSNV.utils import decode, encode, tran_table
 
+class VariantCaller:
+    def __init__(self, config): 
+
+        self.count_threshold = config.count_limit
+        self.error_rate = config.error_rate
+        self.vcf_threshold = config.p_threshold
+        self.correct_factor = config.correct_factor
+        self.indel_limit = config.indel_limit
+        
+        self.kmer_dim = config.kmer_length
+        self.snp_limit = config.snv_limit
+        self.downsample = config.downsample
+        self.average_reads_length = config.average_reads_length
+        
+        self.verbose = config.verbose
+        
+            
+    def output_isnv(self, iSNV_area_list, high_frequency_kmer_dict, reads_abun, \
+                    output_file_name, ref_kmer_builder, sample_mapper):
+        
+        
+        kmer_dim = self.kmer_dim
+        snp_limit = self.snp_limit
+        downsample = self.downsample
+        
+        count_threshold = self.count_threshold
+        error_rate = self.error_rate
+        vcf_threshold = self.vcf_threshold
+        indel_length_limt = self.indel_limit
+        correct_factor = self.correct_factor
+        average_reads_length = self.average_reads_length
+        
+        verbose = self.verbose
+        
+        seq = ref_kmer_builder.get_genome_seq()
+        snp_list = sample_mapper.snp_list
+        border_list = sample_mapper.border_snv_list
+
+        iSNV_dict={}
+
+        iSNV_area_list = sort_by_count(iSNV_area_list,-1)
+
+        kernel=4**np.array(range(kmer_dim),dtype = np.int64)
+        
+        iSNV_dict = recognise_isnv(iSNV_area_list, iSNV_dict, \
+                                kmer_dim, indel_length_limt)
+
+
+        border_SNV_dict = recognise_simple_snv(border_list, iSNV_dict, kmer_dim)
+              
+        simple_SNV_dict = recognise_simple_snv(snp_list, iSNV_dict, kmer_dim)
+
+        for key in border_SNV_dict.keys():
+            if not iSNV_dict.get(key):
+                iSNV_dict[key] = border_SNV_dict[key]
+                
+        for key in simple_SNV_dict.keys():
+            if not iSNV_dict.get(key):
+                iSNV_dict[key] = simple_SNV_dict[key]
+         
+        index_dict={}
+        pos_snv_dict={}
+        for key in iSNV_dict.keys():
+            if not key:
+                continue
+            loc = int(iSNV_dict[key].loc)-1
+            ref_length = len(iSNV_dict[key].ref_base)
+            
+            if iSNV_dict[key].type == 'snp':
+                pos1 = loc
+                pos2 = loc + 1
+            elif iSNV_dict[key].type == 'deletion' and len(iSNV_dict[key].ref_base) \
+                 <= average_reads_length:
+                pos1 = loc
+                pos2 = loc+ref_length
+            else:
+                pos1 = loc
+                pos2 = loc + 1
+            
+            for j in range(pos1,pos2):
+                
+                if not pos_snv_dict.get(j):
+                    pos_snv_dict[j] = set()
+                pos_snv_dict[j].add(key)
+
+            if not index_dict.get(loc):
+                index_dict[loc] = []
+            index_dict[loc].append(key)
+            
+            #if loc == 23054:
+            #    print(1)
+            count = iSNV_dict[key].get_count(high_frequency_kmer_dict)
+            
+        snv_depth = np.zeros(reads_abun.shape) 
+        for pos in pos_snv_dict.keys():
+            iSNV_keys = pos_snv_dict.get(pos)
+            for key in iSNV_keys:
+                #if iSNV_dict[key].type == 'snp' or iSNV_dict[key].type == 'deletion':
+                snv_depth[pos] += iSNV_dict[key].count
+                    
+        base_depth = max_filter(snv_depth+reads_abun, kmer_dim)
+
+        #filter isnv cases
+        filtered_isnv_dict = dict()
+        filtered_pos_snv_dict = dict()
+        key_list = list(index_dict.keys())
+        key_list.sort()
+        k=0
+        for key in key_list:
+
+            for item in index_dict[key]:
+                elems = item.split()
+                loc = int(elems[0]) - 1
+
+                if iSNV_dict[item].count <= 0:
+                    continue
+                
+                if base_depth[loc]*snp_limit <= count_threshold:
+                    if binom.cdf(iSNV_dict[item].count, base_depth[loc], error_rate) \
+                        <vcf_threshold:
+                    #if binom.pmf(iSNV_dict[item].count, base_depth[loc], 0.01)>0.001:
+                        if verbose:
+                            print('ignored low cdf', loc)
+                        continue
+                else:
+                
+                    if iSNV_dict[item].count<count_threshold:
+                        if verbose:
+                            print('ignored low count isnv at', loc)
+                        continue
+                    
+                if elems[1] == 'deletion':
+                    freq1 = iSNV_dict[item].counts[0]/base_depth[loc]
+                    freq2 = iSNV_dict[item].counts[1]/base_depth[loc + len(elems[2]) - 1]
+                    freq_limit = snp_limit * 0.5
+                else:
+                    freq1 = iSNV_dict[item].counts[0]/base_depth[loc]
+                    freq2 = iSNV_dict[item].counts[1]/base_depth[loc]
+                    freq_limit = snp_limit * 0.9
+                    
+                if freq1<freq_limit or freq2<freq_limit:
+
+                    if verbose and freq1 > 0.009 and freq2 > 0.009:
+                        print('ignored low freq isnv at', loc, freq1, freq2)
+                    continue
+                
+                if elems[1] == 'deletion':
+                    freq = iSNV_dict[item].count / max(base_depth[loc], base_depth[loc+len(elems[2])-1])
+                    #freq_limit = snp_limit*0.5
+                else:
+                    #freq_limit = snp_limit*0.9
+                    freq = iSNV_dict[item].count / base_depth[loc]
+
+                
+                #print(freq)
+                if freq<freq_limit:
+
+                    if verbose and freq>0.009:
+                        print('ignored low freq isnv at', loc, freq)
+                    continue
+
+                filtered_isnv_dict[item] = iSNV_dict[item].count
+                if not filtered_pos_snv_dict.get(loc):
+                    filtered_pos_snv_dict[loc] = set()
+                filtered_pos_snv_dict[loc].add(item)
+       
+        #compensite reads depth
+        kmer_depth = reads_abun.copy()
+        for key in filtered_isnv_dict.keys():
+
+            elems = key.split()
+            loc = int(elems[0])-1
+            ref_length = len(elems[2])
+            
+            neighbor_snv = []
+            for i in range(loc+1,loc+kmer_dim):
+                if filtered_pos_snv_dict.get(i) and i != loc:
+                    keys = filtered_pos_snv_dict[i]
+                    for pos_key in keys:
+                        if pos_key.split()[1] == 'snp':
+                            neighbor_snv.append(pos_key)
+                        
+            if len(neighbor_snv)>0:
+                ref_kmer = seq[loc:loc+kmer_dim]
+                neighbor_combo_list = powerSetsBinary(neighbor_snv)
+                for neighbor_combo in neighbor_combo_list:
+                    if neighbor_combo == []:
+                        continue
+                    var_kmer = list(ref_kmer)
+                    #test_kmer = list(ref_kmer)
+                    for neighbor_key in neighbor_combo:
+                        var_loc, _, _, var_base = neighbor_key.split()
+                        loc_diff = int(var_loc)-loc-1
+                        var_kmer[loc_diff] = var_base
+                        #test_kmer[loc_diff] = var_base.lower()
+                        
+                    var_kmer_code = encode(''.join(var_kmer), kernel, tran_table)
+                    count=high_frequency_kmer_dict.get(var_kmer_code,0)
+
+                    if count>kmer_depth[loc]*2:
+                        kmer_depth[loc] += count
+
+        
+        updated_base_depth = max_filter(snv_depth+kmer_depth, kmer_dim)
+       
+        #avoid false compensation
+        for i in range(len(base_depth)):
+            if base_depth[i]>updated_base_depth[i]*correct_factor:
+                base_depth[i]=updated_base_depth[i]
+                
+        #calculate freq for simple snp
+        snp_depth = reads_abun.copy()
+        simple_snp_set = set()
+        for key in filtered_isnv_dict.keys():
+
+            elems = key.split()
+            loc = int(elems[0])-1
+            if elems[1] != 'snp' or len(filtered_pos_snv_dict[loc]) != 1:
+                continue
+
+            mark = False 
+            for key in pos_snv_dict.get(loc):
+                if filtered_isnv_dict.get(key):
+                    mark = True 
+                    break
+            if mark:
+                continue
+
+            shift_size = kmer_dim//2
+            
+            neighbor_snv = []
+            type_set = set()
+            for i in range(loc+1,loc+kmer_dim):
+                if filtered_pos_snv_dict.get(i) and i != loc:
+                    keys = filtered_pos_snv_dict[i]
+                    for pos_key in keys:
+                        neighbor_snv.append(pos_key)
+                        type_set.add(pos_key.split()[1])
+            
+            if 'insertion' in type_set or 'deletion' in type_set:
+                continue
+
+            simple_snp_set.add(key)
+            if len(neighbor_snv) == 0:
+                continue
+            
+            ref_kmer = seq[loc:loc+kmer_dim]
+            neighbor_combo_list = powerSetsBinary(neighbor_snv)
+            for neighbor_combo in neighbor_combo_list:
+                if neighbor_combo == []:
+                    continue
+                var_kmer = list(ref_kmer)
+                test_kmer = list(ref_kmer)
+                for neighbor_key in neighbor_combo:
+                    var_loc, _, _, var_base = neighbor_key.split()
+                    loc_diff = int(var_loc)-loc-1
+                    var_kmer[loc_diff] = var_base
+                    test_kmer[loc_diff] = var_base.lower()
+                    
+                var_kmer_code = encode(''.join(var_kmer), kernel, tran_table)
+                count=high_frequency_kmer_dict.get(var_kmer_code,0)
+
+                snp_depth[loc] += count
+       
+        #ouput
+        k=0
+        #t0 = time.time()
+        rows = []
+        output_dict = dict()
+        new_dict = dict()
+
+        for key in filtered_isnv_dict.keys():
+
+            elems = key.split()
+            loc = int(elems[0])-1
+            depth = int(base_depth[loc])
+            count = iSNV_dict[key].count
+            
+            if count <= 0:
+                continue
+
+            if elems[1] == 'deletion' and len(elems[2])>kmer_dim:
+                depth = min(base_depth[loc], base_depth[loc + len(elems[2]) - 1])
+                
+            elif key in simple_snp_set:
+                depth = snp_depth[loc] + count
+
+            for another_key in filtered_isnv_dict.keys():
+                diff = int(another_key.split()[0]) - loc + 1
+                if 0 < diff < kmer_dim:
+                    depth = max(base_depth[loc], base_depth[loc + diff])
+
+            freq = count / depth
+            freq = min(freq, 1)
+            freq = np.round(freq, 2)
+            if freq<snp_limit:
+                continue
+            
+            if False:
+                string_count = 0
+                reads_string = ''
+                for seq in iSNV_dict[key].hyplotypes:
+                    string_count = max(reads_string.count(seq),string_count)
+                    
+                if string_count < snp_limit * depth / 4:
+                    if verbose:
+                        print('fp variant at', loc, string_count, snp_limit * depth / 4)
+                    continue
+
+            row = [elems[0], elems[2], elems[3], str(freq), str(depth*downsample)]#, str(int(local_abun))]
+            output_dict[key] = freq
+            new_dict[key] = iSNV_dict[key]
+
+            rows.append(row) 
+            k+=1          
+                
+        self.index_dict = index_dict
+        self.candidate_dict = iSNV_dict
+        
+        self.variant_dict = new_dict
+        self.output_dict = output_dict
+        
+        self.connected_kmer_counts = cal_connected_kmer_counts(high_frequency_kmer_dict, \
+                new_dict, kmer_dim, kernel, tran_table)
+            
+        self.base_depth = base_depth
+        self.snp_depth = snp_depth
+        
+        write_csv(output_file_name, rows)
+        
+        return k
+
 class ReadKmer:
     def __init__(self, bases, loc):
         self._kmer=0
@@ -166,7 +498,7 @@ class SNVArea:
             lcs_seq, nb_lcstr = longestCommonSubstr(ref_seq[i], var_seq[i])
             ref_lcs_loc = ref_seq[i].find(lcs_seq)
                         
-            if 21 > len(lcs_seq) >= threshold \
+            if self.kmer_dim > len(lcs_seq) >= threshold \
                 and ref_seq[i][ref_lcs_loc+1:].find(lcs_seq) == -1:
 
                 var_lcs_loc = var_seq[i].find(lcs_seq)
@@ -209,7 +541,7 @@ class SNVArea:
 
         return nb_changes
 
-    def explain_by_snv(self, snv_set, indel_only = True ):
+    def explain_by_snv(self, snv_set, indel_only = True):
 
         loc = self.loc
         ref_seq = self.aligned_ref_seq.copy()
@@ -265,7 +597,7 @@ class SNVArea:
                         
                         nb_changes+=1
                         if len(ref_seq) != len(var_seq):
-                            print('error at explaining snv area', loc)
+                            #print('error at explaining snv area', loc)
                             return 0
                         self.aligned_ref_seq = ref_seq
                         self.aligned_var_seq = var_seq
@@ -304,7 +636,7 @@ class SNVArea:
                             
                         nb_changes+=1
                         if len(ref_seq) != len(var_seq):
-                            print('error at explaining snv area', loc)
+                            #print('error at explaining snv area', loc)
                             return 0
                         self.aligned_ref_seq = ref_seq
                         self.aligned_var_seq = var_seq
@@ -639,30 +971,7 @@ class SNVCase:
         return False
 
 
-class VariantCaller:
-    def __init__(self, seq, qc_dir, kmer_dim, snp_limit, downsample, \
-                count_threshold=5, average_reads_length=150, error_rate=0.01, \
-                vcf_threshold=0.9999, correct_factor=0.8, dfs_limt=1000): 
-        self.seq = seq
-        self.qc_dir = qc_dir
-        self.count_threshold = count_threshold
-        self.average_reads_length = average_reads_length
-        self.error_rate = error_rate
-        self.vcf_threshold = vcf_threshold
-        self.correct_factor = correct_factor
-        self.dfs_limt = dfs_limt
-        
-        self.kmer_dim = kmer_dim
-        self.snp_limit = snp_limit
-        self.downsample = downsample
-        
-    def build_map(self, iSNV_area_list, snp_list, border_list, high_frequency_kmer_dict,
-                  output_file_name, reads_abun):
-        return output_isnv(self.seq, iSNV_area_list, snp_list, border_list, self.qc_dir, 
-                           high_frequency_kmer_dict, output_file_name, \
-                        self.kmer_dim, reads_abun, self.snp_limit, self.downsample, \
-                        self.count_threshold, self.average_reads_length, self.error_rate, \
-                        self.vcf_threshold, self.correct_factor, self.dfs_limt)
+
 
 def checkAndMerge(s1, s2):    
     m = min(len(s1), len(s2))    
@@ -803,7 +1112,7 @@ def longestCommonSubstr(word1: str, word2: str) -> int:
             
    
 def recognise_isnv(iSNV_area_list, iSNV_dict, \
-                   qc_dir, kmer_dim, snv_length_limt):
+                   kmer_dim, snv_length_limt):
 
     kernel=4**np.array(range(kmer_dim),dtype = np.int64)
     
@@ -945,7 +1254,41 @@ def recognise_simple_snv(snp_list, iSNV_dict, kmer_dim):
 
     return temp_snv_dict
 
-def output_isnv(seq, iSNV_area_list, snp_list, border_list, qc_dir, high_frequency_kmer_dict, \
+
+def write_csv(output_file_name, rows):
+    f=open(output_file_name,'w')
+    f.write('Position	Reference	Variation	Frequency	Depth\n')
+
+    for row in rows:
+
+        f.write('\t'.join(row)+'\n')  
+        
+    f.close()
+    return True
+
+def hyplotype2kmers(hyplotype, kmer_dim, kernel, tran_table):
+    nb_kmer = len(hyplotype) - kmer_dim + 1
+    kmers = []
+    for i in range(nb_kmer):
+        kmer_string = hyplotype[i : i + kmer_dim]
+        kmers.append(encode(kmer_string, kernel, tran_table))
+    #print(hyplotype, kmer_string, len(kmers))
+    return kmers
+
+def cal_connected_kmer_counts(high_frequency_kmer_dict, iSNV_dict, kmer_dim, kernel, tran_table):
+    kmer_set = set()
+    for key in iSNV_dict.keys():
+        hyplotypes = iSNV_dict[key].hyplotypes
+        for hyplotype in hyplotypes:
+            kmers = hyplotype2kmers(hyplotype, kmer_dim, kernel, tran_table)
+            kmer_set.update(kmers)
+            
+    k = 0        
+    for kmer in kmer_set:
+        k += high_frequency_kmer_dict.get(kmer, 0)
+    return k
+
+def output_isnv_bk(seq, iSNV_area_list, snp_list, border_list, qc_dir, high_frequency_kmer_dict, \
                 output_file_name, kmer_dim, reads_abun, snp_limit, \
                 downsample, count_threshold=5, average_reads_length=150, error_rate=0.01, \
                 vcf_threshold=0.9999, correct_factor=0.8, dfs_limt=1000):
@@ -1015,8 +1358,8 @@ def output_isnv(seq, iSNV_area_list, snp_list, border_list, qc_dir, high_frequen
     base_depth = max_filter(snv_depth+reads_abun, kmer_dim)
 
     #filter isnv cases
-    selected_isnv_dict = dict()
-    selected_pos_snv_dict = dict()
+    filtered_isnv_dict = dict()
+    filtered_pos_snv_dict = dict()
     key_list = list(index_dict.keys())
     key_list.sort()
     k=0
@@ -1074,14 +1417,14 @@ def output_isnv(seq, iSNV_area_list, snp_list, border_list, qc_dir, high_frequen
             if freq>1:
                 print('warning: freq>1, freq=', freq, 'at', loc)
                 freq=1
-            selected_isnv_dict[item] = iSNV_dict[item].count
-            if not selected_pos_snv_dict.get(loc):
-                selected_pos_snv_dict[loc] = set()
-            selected_pos_snv_dict[loc].add(item)
+            filtered_isnv_dict[item] = iSNV_dict[item].count
+            if not filtered_pos_snv_dict.get(loc):
+                filtered_pos_snv_dict[loc] = set()
+            filtered_pos_snv_dict[loc].add(item)
    
     #compensite reads depth
     kmer_depth = reads_abun.copy()
-    for key in selected_isnv_dict.keys():
+    for key in filtered_isnv_dict.keys():
 
         elems = key.split()
         loc = int(elems[0])-1
@@ -1089,8 +1432,8 @@ def output_isnv(seq, iSNV_area_list, snp_list, border_list, qc_dir, high_frequen
         
         neighbor_snv = []
         for i in range(loc+1,loc+kmer_dim):
-            if selected_pos_snv_dict.get(i) and i != loc:
-                keys = selected_pos_snv_dict[i]
+            if filtered_pos_snv_dict.get(i) and i != loc:
+                keys = filtered_pos_snv_dict[i]
                 for pos_key in keys:
                     if pos_key.split()[1] == 'snp':
                         neighbor_snv.append(pos_key)
@@ -1126,16 +1469,16 @@ def output_isnv(seq, iSNV_area_list, snp_list, border_list, qc_dir, high_frequen
     #calculate freq for simple snp
     snp_depth = reads_abun.copy()
     simple_snp_set = set()
-    for key in selected_isnv_dict.keys():
+    for key in filtered_isnv_dict.keys():
 
         elems = key.split()
         loc = int(elems[0])-1
-        if elems[1] != 'snp' or len(selected_pos_snv_dict[loc]) != 1:
+        if elems[1] != 'snp' or len(filtered_pos_snv_dict[loc]) != 1:
             continue
 
         mark = False 
         for key in pos_snv_dict.get(loc):
-            if selected_isnv_dict.get(key):
+            if filtered_isnv_dict.get(key):
                 mark = True 
                 break
         if mark:
@@ -1146,8 +1489,8 @@ def output_isnv(seq, iSNV_area_list, snp_list, border_list, qc_dir, high_frequen
         neighbor_snv = []
         type_set = set()
         for i in range(loc+1,loc+kmer_dim):
-            if selected_pos_snv_dict.get(i) and i != loc:
-                keys = selected_pos_snv_dict[i]
+            if filtered_pos_snv_dict.get(i) and i != loc:
+                keys = filtered_pos_snv_dict[i]
                 for pos_key in keys:
                     neighbor_snv.append(pos_key)
                     type_set.add(pos_key.split()[1])
@@ -1183,7 +1526,7 @@ def output_isnv(seq, iSNV_area_list, snp_list, border_list, qc_dir, high_frequen
     f=open(output_file_name,'w')
     f.write('Position	Reference	Variation	Frequency	Depth\n')
 
-    for key in selected_isnv_dict.keys():
+    for key in filtered_isnv_dict.keys():
 
         elems = key.split()
         loc = int(elems[0])-1
@@ -1224,25 +1567,3 @@ def output_isnv(seq, iSNV_area_list, snp_list, border_list, qc_dir, high_frequen
     f.close()
     return k, index_dict, iSNV_dict
 
-if __name__ == '__main__':
-    
-    import os, psutil, time
-
-    default_kmer_length=21
-    default_average_kmer_count=4350.3*0.818*5
-
-    high_frequency_kmer_array = np.load('/home/liliandong/workspace/iSNV/temp/high_frequency_kmer_array.npy')
-    exp_high_frequency_kmer_dict = dict(high_frequency_kmer_array)
-
-    exp_iSNV_dir='/home/liliandong/workspace/iSNV/test/kmers/'
-    exp_qc_iSNV_dir='/home/liliandong/workspace/iSNV/test/qc/'
-
-    output_path='/home/liliandong/workspace/iSNV/release/output/test.txt'
-
-    T0 = time.time()
-    recognise_isnv(exp_iSNV_dir, exp_qc_iSNV_dir, exp_high_frequency_kmer_dict, output_path, \
-        default_kmer_length, default_average_kmer_count)
-    T1 = time.time()
-    
-    print('time using: ', T1-T0)
-    print(u'RAM using %.4f GB' % (psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024 / 1024) )

@@ -11,11 +11,81 @@ from Bio import SeqIO
 from pyiSNV.utils import tran_table
 
 class GenomeMapBuilder:
-    def __init__(self, kmer_length):
-        self.kmer_length = kmer_length
+    def __init__(self, config):
+        self.kmer_length = config.kmer_length
+    
+    def build_ref_db(self, ref_file):
         
-    def build_map(self, genome_file):
-        return build_ref_db(genome_file, self.kmer_length)
+        kmer_length = self.kmer_length
+        
+        if kmer_length%2 == 0:
+            print('ERROR: setting kmer length as a even number is currently not supported')
+            kmer_length = kmer_length + 1
+            print('Revised kmer length:', kmer_length)  
+            
+        if kmer_length > 30:
+            print('ERROR: kmer length larger than 30 is currently not supported')
+            kmer_length = 29
+            print('Revised kmer length:', kmer_length)
+
+        kernel=4**np.array(range(kmer_length),dtype=np.int64)
+
+        
+        with open(ref_file, 'r') as handle:
+            for rec in SeqIO.parse(handle, 'fasta'):
+                seq=''.join(rec.seq)
+                
+                seq = remove_repeat(seq)
+                #kmers, rev_kmers=seq2kmer(seq[:-3], kernel, tran_table, kmer_length)
+                kmers, rev_kmers=seq2kmer(seq, kernel, tran_table, kmer_length)
+                if len(kmers) != len(seq) - kmer_length + 1:
+                    print('ERROR: Depulicate kmer exist, please increase kmer length')
+                assert len(kmers) == len(np.unique(kmers))
+
+
+        #print(len(kmers),len(np.unique(kmers)))
+        unique_kmers, index, counts = np.unique(kmers,return_index=True,return_counts=True)
+
+        ref_db_array_f=np.zeros([len(index),2], dtype=np.int64)
+        ref_db_array_f[:,0]=unique_kmers
+        ref_db_array_f[:,1]=index
+
+        #print(len(rev_kmers),len(np.unique(rev_kmers)))
+        unique_kmers, index, counts = np.unique(rev_kmers,return_index=True,return_counts=True)
+
+        ref_db_array_r=np.zeros([len(index),2], dtype=np.int64)
+        ref_db_array_r[:,0]=unique_kmers
+        ref_db_array_r[:,1]=index
+        
+        ref_db_array=np.concatenate([ref_db_array_f, ref_db_array_r])
+
+        self._ref_kmer_dict = dict(ref_db_array)
+        self._ref_kmer_f_dict = dict(ref_db_array_f)
+        self._ref_kmer_r_dict = dict(ref_db_array_r)
+        
+        self._genome = seq
+        
+        return True
+    
+    def get_ref_kmer(self, keyword='all'):
+
+        if keyword == 'forward':
+            return self._ref_kmer_f_dict
+        elif keyword == 'reverse':
+            return self._ref_kmer_r_dict
+        else:
+            return self._ref_kmer_dict
+    
+    def get_genome_seq(self):
+        return self._genome
+    
+def remove_repeat(seq):
+    for i in range(len(seq)):
+        if seq[-i - 1] == 'A' or seq[-i - 1] == 'a':
+            continue
+        else:
+            #print(i)
+            return seq[:-i]
 
 def seq2kmer(seq, kernel, tran_table, k):
     """Converts a DNA sequence split into a list of k-mers.
@@ -35,7 +105,7 @@ def seq2kmer(seq, kernel, tran_table, k):
     return convolved, rev_convolved
 
 
-def build_ref_db(ref_file, kmer_length=21):
+def build_ref_db_bk(ref_file, kmer_length=21):
 
     kernel=4**np.array(range(kmer_length),dtype=np.int64)
 
@@ -63,19 +133,3 @@ def build_ref_db(ref_file, kmer_length=21):
     
     return ref_db_array_f, ref_db_array_r, seq
     
-
-if __name__ == '__main__':
-    import os, psutil, time
-
-    default_kmer_length=21
-    example_ref_file='/home/liliandong/workspace/iSNV/DB/GCF_009858895.2_ASM985889v3_genomic.fna'
-
-    T0=time.time()
-    ref_db_array_f, ref_db_array_r, seq = build_ref_db(example_ref_file, default_kmer_length)
-    T1=time.time()
-
-    #np.save('temp/ref_db_array_f.npy', ref_db_array)
-    #np.save('temp/ref_db_array_r.npy', ref_db_array)
-    
-    print('time using: ', T1-T0)
-    print(u'RAM using %.4f GB' % (psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024 / 1024) )
