@@ -23,9 +23,13 @@ class GenomeMapBuilder:
             kmer_length = kmer_length + 1
             print('Revised kmer length:', kmer_length)  
             
-        if kmer_length > 31:
-            print('ERROR: kmer length larger than 31 is currently not supported')
-            kmer_length = 31
+        if kmer_length > 29:
+            print('ERROR: kmer length larger than 29 is currently not supported')
+            kmer_length = 29
+            print('Revised kmer length:', kmer_length)
+        elif kmer_length < 1:
+            print('ERROR: invlid kmer length')
+            kmer_length = 21
             print('Revised kmer length:', kmer_length)
 
         kernel=4**np.array(range(kmer_length),dtype=np.int64)
