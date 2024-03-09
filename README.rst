@@ -3,7 +3,7 @@ iSNV Detection
 
 PySNV is a tool for detecting iSNVs (intra-host variations) in tNGS sequencing data.
 
-Intall
+Install
 ------------
 
 .. code-block:: sh
@@ -56,8 +56,18 @@ Bash Usage
 
 Command
 
-    pyisnv detect_sample --sample1 <path-to-sample1.fastq> --sample2 <path-to-sample2.fastq> --reference <path-to-reference_genome.fa> --output <output_filename>
-    pyisnv detect-multi-samples --folder <path-to-samples-folder>  --reference <path-to-reference_genome.fa> --output <output-folder>
+.. code-block:: sh
+
+    pyisnv detect-sample \
+        --sample1 <path-to-sample1.fastq> \
+        --sample2 <path-to-sample2.fastq> \
+        --reference <path-to-reference_genome.fa> \
+        --output <output_filename>
+
+    pyisnv detect-multi-samples \
+        --folder <path-to-samples-folder>  \
+        --reference <path-to-reference_genome.fa> \
+        --output <output-folder>
 
 Parameter
 
@@ -81,3 +91,4 @@ Additional Parameters
         Used to filter out possible false positive detection.\
     ``--indel_limit``: Maximum Indel Length (Default: 300)
         To mitigate false positive indels, especially in the case of challenging long insertions and potential impacts on estimated sequencing depths due to long deletions, a default maximum indel length of 300 is set. The recommended length threshold is 2*average_read_length.\
+
