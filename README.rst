@@ -6,12 +6,16 @@ PySNV is a tool for detecting iSNVs (intra-host variations) in tNGS sequencing d
 Intall
 ------------
 
+.. code-block:: sh
+
     git clone https://github.com/dezordi/PySNV.git
     cd PySNV
     pip install .
 
 Check Installation
 ------------
+
+.. code-block:: sh
 
     pyisnv --help
 
@@ -41,6 +45,8 @@ Example Files
     example_multi_files.py: Illustrates how to process multiple input files simultaneously. Paired samples hould include '_R1' and '_R2' in the file names. Adjust the number of kernels to use parallel processing.
 
 Note: Before running the examples, make sure to set the necessary parameters in the file.
+
+.. code-block:: sh
 
     python example.py <path-to-pyiSNV> <path-to-R1-fastq>
     python example_multi_files.py <path-to-pyiSNV> <path-to-fastqs-folder>
