@@ -8,7 +8,7 @@ Intall
 
 .. code-block:: sh
 
-    git clone https://github.com/dezordi/PySNV.git
+    git clone https://github.com/bnuLyndon/PySNV.git
     cd PySNV
     pip install .
 
