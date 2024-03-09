@@ -3,44 +3,57 @@ iSNV Detection
 
 PySNV is a tool for detecting iSNVs (intra-host variations) in tNGS sequencing data.
 
-Requirements
+Intall
 ------------
 
-Ensure you have the following Python libraries installed:
+    git clone https://github.com/dezordi/PySNV.git
+    cd PySNV
+    pip install .
 
-1. `numpy`
-2. `pandas`
-3. `psutil`
-4. `Bio`
-5. `hirola`
+Check Installation
+------------
 
-Python Usage
+    pyisnv --help
+
+    Usage: pyisnv [OPTIONS] COMMAND [ARGS]...
+    PySNV is a tool for detecting iSNVs (intra-host variations) in tNGS
+    sequencing data.
+
+    Options:
+    --version  Show the version and exit.
+    --help     Show this message and exit.
+
+    Commands:
+    detect-multi-samples  Detect iSNVs of multiple samples using PySNV.
+    detect-sample         Detect iSNVs using PySNV.
+
+    pyisnv --version
+
+    pyisnv, version 1.0.0
+
+
+Usage
 -----
-1. Modify the `running_dir` variable in `example.py` to set the running directory.
-
-2. Set the sample file(s) and genome file in `example.py`.
-
-3. Run `example.py`.
 
 Example Files
 
     example.py: Demonstrates basic usage of the PySNV tool.
-
-    detect_sample.py: Main function of processing for a single sample.
-
     example_multi_files.py: Illustrates how to process multiple input files simultaneously. Paired samples hould include '_R1' and '_R2' in the file names. Adjust the number of kernels to use parallel processing.
-
-    detect_sample.py: Main function of processing for a sample folder.
 
 Note: Before running the examples, make sure to set the necessary parameters in the file.
 
+    python example.py <path-to-pyiSNV> <path-to-R1-fastq>
+    python example_multi_files.py <path-to-pyiSNV> <path-to-fastqs-folder>
+
 Bash Usage
 ------------------
+
 Command
 
-``python detect_sample.py --sample1 path/to/sample1.fastq --sample2 path/to/sample2.fastq --reference path/to/reference_genome.fa --output output_filename``
+    pyisnv detect_sample --sample1 <path-to-sample1.fastq> --sample2 <path-to-sample2.fastq> --reference <path-to-reference_genome.fa> --output <output_filename>
+    pyisnv detect-multi-samples --folder <path-to-samples-folder>  --reference <path-to-reference_genome.fa> --output <output-folder>
 
-Parameters
+Parameter
 
 ``--sample1``: Path to single-end sample or first paired-end sample. Fasta, fastq and gz files are supported.
 
@@ -62,4 +75,3 @@ Additional Parameters
         Used to filter out possible false positive detection.\
     ``--indel_limit``: Maximum Indel Length (Default: 300)
         To mitigate false positive indels, especially in the case of challenging long insertions and potential impacts on estimated sequencing depths due to long deletions, a default maximum indel length of 300 is set. The recommended length threshold is 2*average_read_length.\
-
