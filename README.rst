@@ -3,44 +3,73 @@ iSNV Detection
 
 PySNV is a tool for detecting iSNVs (intra-host variations) in tNGS sequencing data.
 
-Requirements
+Install
 ------------
 
-Ensure you have the following Python libraries installed:
+.. code-block:: sh
 
-1. `numpy`
-2. `pandas`
-3. `psutil`
-4. `Bio`
-5. `hirola`
+    git clone https://github.com/bnuLyndon/PySNV.git
+    cd PySNV
+    pip install .
 
-Python Usage
+Check Installation
+------------
+
+.. code-block:: sh
+
+    pyisnv --help
+
+    Usage: pyisnv [OPTIONS] COMMAND [ARGS]...
+    PySNV is a tool for detecting iSNVs (intra-host variations) in tNGS
+    sequencing data.
+
+    Options:
+    --version  Show the version and exit.
+    --help     Show this message and exit.
+
+    Commands:
+    detect-multi-samples  Detect iSNVs of multiple samples using PySNV.
+    detect-sample         Detect iSNVs using PySNV.
+
+    pyisnv --version
+
+    pyisnv, version 1.0.0
+
+
+Usage
 -----
-1. Modify the `running_dir` variable in `example.py` to set the running directory.
-
-2. Set the sample file(s) and genome file in `example.py`.
-
-3. Run `example.py`.
 
 Example Files
 
     example.py: Demonstrates basic usage of the PySNV tool.
-
-    detect_sample.py: Main function of processing for a single sample.
-
     example_multi_files.py: Illustrates how to process multiple input files simultaneously. Paired samples hould include '_R1' and '_R2' in the file names. Adjust the number of kernels to use parallel processing.
-
-    detect_sample.py: Main function of processing for a sample folder.
 
 Note: Before running the examples, make sure to set the necessary parameters in the file.
 
+.. code-block:: sh
+
+    python example.py <path-to-pyiSNV> <path-to-R1-fastq>
+    python example_multi_files.py <path-to-pyiSNV> <path-to-fastqs-folder>
+
 Bash Usage
 ------------------
+
 Command
 
-``python detect_sample.py --sample1 path/to/sample1.fastq --sample2 path/to/sample2.fastq --reference path/to/reference_genome.fa --output output_filename``
+.. code-block:: sh
 
-Parameters
+    pyisnv detect-sample \
+        --sample1 <path-to-sample1.fastq> \
+        --sample2 <path-to-sample2.fastq> \
+        --reference <path-to-reference_genome.fa> \
+        --output <output_filename>
+
+    pyisnv detect-multi-samples \
+        --folder <path-to-samples-folder>  \
+        --reference <path-to-reference_genome.fa> \
+        --output <output-folder>
+
+Parameter
 
 ``--sample1``: Path to single-end sample or first paired-end sample. Fasta, fastq and gz files are supported.
 

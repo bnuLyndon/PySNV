@@ -1,5 +1,0 @@
-numpy
-pandas==1.4
-psutil
-Bio
-hirola==0.3
