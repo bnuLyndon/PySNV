@@ -19,6 +19,10 @@ Check Installation
 
     pyisnv --help
 
+This will display the usage information:
+
+.. code-block:: text
+
     Usage: pyisnv [OPTIONS] COMMAND [ARGS]...
     PySNV is a tool for detecting iSNVs (intra-host variations) in tNGS
     sequencing data.
@@ -42,6 +46,7 @@ Usage
 Example Files
 
     example.py: Demonstrates basic usage of the PySNV tool.
+
     example_multi_files.py: Illustrates how to process multiple input files simultaneously. Paired samples hould include '_R1' and '_R2' in the file names. Adjust the number of kernels to use parallel processing.
 
 Note: Before running the examples, make sure to set the necessary parameters in the file.
