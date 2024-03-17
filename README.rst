@@ -35,7 +35,15 @@ This will display the usage information:
     detect-multi-samples  Detect iSNVs of multiple samples using PySNV.
     detect-sample         Detect iSNVs using PySNV.
 
+To check the installed version, run:
+
+.. code-block:: sh
+
     pyisnv --version
+
+This should output the current version:
+
+.. code-block:: text
 
     pyisnv, version 1.0.0
 
