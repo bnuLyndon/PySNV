@@ -105,3 +105,12 @@ Additional Parameters
     ``--indel_limit``: Maximum Indel Length (Default: 300)
         To mitigate false positive indels, especially in the case of challenging long insertions and potential impacts on estimated sequencing depths due to long deletions, a default maximum indel length of 300 is set. The recommended length threshold is 2*average_read_length.\
 
+Cite
+-----
+If these codes are helpful for you, please cite our paper:
+
+Li, L., Fu, H., Ma, W., & Li, M. (2024). PySNV for complex intra-host variation detection. Bioinformatics, btae116.
+
+https://doi.org/10.1093/bioinformatics/btae116
+
+https://academic.oup.com/bioinformatics/article/40/3/btae116/7616992
